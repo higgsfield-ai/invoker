@@ -165,7 +165,7 @@ func (d *DockerRun) Run(
 		HostConfig: &container.HostConfig{
 			Binds: []string{
 				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
-				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestProjectCachePath),
+				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
 			},
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),

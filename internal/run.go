@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 type RunArgs struct {
@@ -33,16 +32,6 @@ func Run(args RunArgs) {
 		os.Exit(1)
 	}
 
-	mgr, err := NewMetadataManager(filepath.Join(hostCachePath, args.ProjectName, "metadata.json"))
-	if err != nil {
-		fmt.Printf("failed to create metadata manager: %v\n", err)
-		os.Exit(1)
-	}
-
-	if _, err = mgr.KillExperiments(&args.ExperimentName); err != nil {
-		fmt.Printf("failed to kill experiments: %v\n", err)
-	}
-
 	cmd, cmdArgs := buildArgs(
 		nodeNum,
 		rank,
@@ -52,7 +41,7 @@ func Run(args RunArgs) {
 		[]string{"run_experiment.py"},
 		args.NProcPerNode,
 		args.ExperimentName,
-    args.ProjectName,
+		args.ProjectName,
 		args.Port,
 		args.RunName,
 		args.MaxRepeats,
@@ -80,7 +69,7 @@ func buildArgs(
 	experimentExecutable []string,
 	nProcPerNode int,
 	experimentName string,
-  projectName string,
+	projectName string,
 	port int,
 	runName string,
 	maxRepeats int,
@@ -104,8 +93,8 @@ func buildArgs(
 	args = append(args,
 		"--experiment_name",
 		experimentName,
-    "--project_name",
-    projectName,
+		"--project_name",
+		projectName,
 		"--run_name",
 		runName,
 		"--max_repeats",

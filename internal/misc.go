@@ -123,7 +123,8 @@ func makeDefaultDirectories(projectName, experimentName, runName string) (string
 		}
 	}
 
-	return cacheDir.path, experimentDir.Join("logs").Join(runName).path, nil
+  guestPath := Path{path: filepath.Join("/home/nonroot/", ".cache", projectName, "experiments")}
+  return cacheDir.path, guestPath.Join("logs").Join(runName).path, nil
 }
 
 

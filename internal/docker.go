@@ -6,8 +6,7 @@ import (
 	"io"
 	"os"
 
-	"path/filepath"
-
+  "github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -110,6 +109,12 @@ func (d *DockerRun) Run(
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
+  buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
+  if err != nil {
+    panic(err)
+  }
+  defer buildCtx.Close()
+
 	fmt.Printf("rebuilding image %s\n", d.imageTag)
 	buildOptions := types.ImageBuildOptions{
 		Tags: []string{d.imageTag},
@@ -117,10 +122,11 @@ func (d *DockerRun) Run(
 			"GID": PtrTo(fmt.Sprintf("%d", d.hostGID)),
 			"UID": PtrTo(fmt.Sprintf("%d", d.hostUID)),
 		},
-		Dockerfile: filepath.Join(d.hostRootPath, "Dockerfile"),
+    Remove:     true, // Remove intermediate containers after the build
+    ForceRemove: true, // Force removal of the image if it exists
 	}
 
-	buildResponse, err := d.client.ImageBuild(d.ctx, nil, buildOptions)
+	buildResponse, err := d.client.ImageBuild(d.ctx, buildCtx, buildOptions)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to build image %s", d.imageTag)
 	}

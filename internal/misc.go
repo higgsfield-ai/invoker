@@ -126,47 +126,6 @@ func makeDefaultDirectories(projectName, experimentName, runName string) (string
 	return cacheDir.path, experimentDir.Join("logs").Join(runName).path, nil
 }
 
-func buildArgs(
-	nodeNum int,
-	rank int,
-	master string,
-	masterPort int,
-	logPath string,
-	experimentExecutable []string,
-	nProcPerNode int,
-	experimentName string,
-	port int,
-	runName string,
-	maxRepeats int,
-	rest []string,
-) (string, []string) {
-	args := []string{
-		"--nnodes",
-		fmt.Sprint(nodeNum),
-		"--node_rank",
-		fmt.Sprint(rank),
-		"--master_addr",
-		master,
-		"--master_port",
-		fmt.Sprint(nodeNum),
-		"--nproc_per_node",
-		fmt.Sprint(nProcPerNode),
-		"--log_dir",
-		logPath}
-
-	args = append(args, experimentExecutable...)
-	args = append(args,
-		"--experiment_name",
-		experimentName,
-		"--run_name",
-		runName,
-		"--max_repeats",
-		fmt.Sprint(maxRepeats))
-
-	args = append(args, rest...)
-
-	return "torchrun", args
-}
 
 
 

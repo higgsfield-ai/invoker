@@ -54,7 +54,7 @@ func (m *MetadataManager) KillExperiments(experimentName *string) ([]string, err
 	killed := make([]string, 0)
 	// if experimentName is nil, kill all experiments
 	// else kill only the experiment with the given name
-	if experimentName != nil {
+	if experimentName != nil || *experimentName != "" {
 		experiment := m.metadata["experiments"].(map[string]interface{})[*experimentName]
 		if experiment == nil {
 			return nil, nil

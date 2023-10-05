@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 
+	"path/filepath"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -82,7 +84,9 @@ func (d *DockerRun) Kill(experimentName string) error {
 	for _, c := range containers {
 		if c.Status == "running" {
 			fmt.Printf("stopping container %s\n", c.ID)
-			d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)})
+      if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
+        fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
+      }
 		}
 
 		fmt.Printf("removing container %s\n", c.ID)
@@ -102,7 +106,7 @@ func (d *DockerRun) Run(
 	containerName := fmt.Sprintf("%s-%s", d.projectName, experimentName)
 
 	fmt.Printf("killing container %s\n", containerName)
-	if err := d.Kill(containerName); err != nil {
+	if err := d.Kill(experimentName); err != nil {
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
@@ -113,7 +117,7 @@ func (d *DockerRun) Run(
 			"GID": PtrTo(fmt.Sprintf("%d", d.hostGID)),
 			"UID": PtrTo(fmt.Sprintf("%d", d.hostUID)),
 		},
-		Dockerfile: "Dockerfile",
+		Dockerfile: filepath.Join(d.hostRootPath, "Dockerfile"),
 	}
 
 	buildResponse, err := d.client.ImageBuild(d.ctx, nil, buildOptions)

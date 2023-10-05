@@ -8,7 +8,7 @@ import (
 
 type KillArgs struct {
 	ProjectName    string   `validate:"required,varname"`
-	Hosts          []string `validate:"required,min=1,dive,hostname"`
+	Hosts          []string `validate:"required,min=1"`
 	ExperimentName string   `validate:"varname"`
 }
 

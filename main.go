@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/ml-doom/invoker/internal"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var rootCmd = &cobra.Command{Use: "higgsfield"}
@@ -72,11 +74,24 @@ func decodeSecrets() *cobra.Command {
 
 }
 
+func randomName() *cobra.Command {
+  cmd := &cobra.Command{
+    Use: "random-name",
+    Short: "Generate a random name",
+    Run: func(cmd *cobra.Command, args []string) {
+      fmt.Print(namesgenerator.GetRandomName(0))
+    },
+  }
+
+  return cmd
+}
+
 func main() {
 	experimentCmd.AddCommand(runCmdFunc())
 	experimentCmd.AddCommand(killCmdFunc())
 
 	rootCmd.AddCommand(decodeSecrets())
+  rootCmd.AddCommand(randomName())
 	rootCmd.AddCommand(experimentCmd)
 
 	if err := rootCmd.Execute(); err != nil {

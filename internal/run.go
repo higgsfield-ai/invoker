@@ -26,11 +26,29 @@ func Run(args RunArgs) {
 	portIsAvailable(args.Port)
 	nodeNum := len(args.Hosts)
 
-	hostCachePath, guestLogPath, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
+	if !isPortAvailable(args.Port) {
+		fmt.Printf("port %d is not available\n", args.Port)
+		os.Exit(1)
+	}
+
+	hostCachePath, guestLogPath, checkpointDir, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
 	if err != nil {
 		fmt.Printf("failed to create directories: %v\n", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf(`
+|=============================================================================================================
+|=
+|=  Training info:
+|=  🛠🛠🛠
+|=
+|=  EXPERIMENT NAME =       %s
+|=  RUN NAME =              %s
+|=  MODEL CHECKPOINT PATH = %s
+|=
+|============================================================================================================="""
+`, args.ExperimentName, args.RunName, checkpointDir)
 
 	cmd, cmdArgs := buildArgs(
 		nodeNum,

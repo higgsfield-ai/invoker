@@ -75,15 +75,27 @@ func decodeSecrets() *cobra.Command {
 }
 
 func randomName() *cobra.Command {
-  cmd := &cobra.Command{
-    Use: "random-name",
-    Short: "Generate a random name",
-    Run: func(cmd *cobra.Command, args []string) {
-      fmt.Print(namesgenerator.GetRandomName(0))
-    },
-  }
+	cmd := &cobra.Command{
+		Use:   "random-name",
+		Short: "Generate a random name",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Print(namesgenerator.GetRandomName(0))
+		},
+	}
 
-  return cmd
+	return cmd
+}
+
+func randomPort() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "random-port",
+		Short: "Generate a random port",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Print(internal.GeneratePort())
+		},
+	}
+
+	return cmd
 }
 
 func main() {
@@ -91,7 +103,8 @@ func main() {
 	experimentCmd.AddCommand(killCmdFunc())
 
 	rootCmd.AddCommand(decodeSecrets())
-  rootCmd.AddCommand(randomName())
+	rootCmd.AddCommand(randomName())
+	rootCmd.AddCommand(randomPort())
 	rootCmd.AddCommand(experimentCmd)
 
 	if err := rootCmd.Execute(); err != nil {

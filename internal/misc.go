@@ -90,45 +90,46 @@ func (p *Path) Join(subpath string) *Path {
 	return &Path{path: filepath.Join(p.path, subpath)}
 }
 
-func makeDefaultDirectories(projectName, experimentName, runName string) (string, string, error) {
+func makeDefaultDirectories(projectName, experimentName, runName string) (string, string, string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", "", errors.WithMessage(err, "failed to get user home directory")
+		return "", "", "", errors.WithMessage(err, "failed to get user home directory")
 	}
 
 	cacheDir := Path{path: filepath.Join(home, ".cache")}
 	if err = cacheDir.mkdirIfNotExists(); err != nil {
-		return "", "", errors.WithMessage(err, "failed to create cache directory")
+		return "", "", "", errors.WithMessage(err, "failed to create cache directory")
 	}
 
 	projectDir := cacheDir.Join(projectName)
 	if err = projectDir.mkdirIfNotExists(); err != nil {
-		return "", "", errors.WithMessage(err, "failed to create project directory")
+		return "", "", "", errors.WithMessage(err, "failed to create project directory")
 	}
 
 	experimentsDir := projectDir.Join("experiments")
 	if err = experimentsDir.mkdirIfNotExists(); err != nil {
-		return "", "", errors.WithMessage(err, "failed to create experiments directory")
+		return "", "", "", errors.WithMessage(err, "failed to create experiments directory")
 	}
 
 	experimentDir := experimentsDir.Join(experimentName)
 	if err = experimentDir.mkdirIfNotExists(); err != nil {
-		return "", "", errors.WithMessage(err, "failed to create experiment directory")
+		return "", "", "", errors.WithMessage(err, "failed to create experiment directory")
 	}
 
 	med := []string{"checkpoints", "sharded-checkpoints", "lr-schedules", "logs", "plots", "results"}
 	for _, dir := range med {
 		if err = experimentDir.Join(dir).Join(runName).mkdirIfNotExists(); err != nil {
-			return "", "", errors.WithMessagef(err, "failed to create %s directory for experiment %s and run name %s", dir, experimentName, runName)
+			return "", "", "", errors.WithMessagef(err, "failed to create %s directory for experiment %s and run name %s", dir, experimentName, runName)
 		}
 	}
 
-  guestPath := Path{path: filepath.Join("/home/nonroot/", ".cache", projectName, "experiments")}
-  return cacheDir.path, guestPath.Join("logs").Join(runName).path, nil
+	checkpointDir := cacheDir.Join("higgsfield").Join(projectName).Join("experiments").Join(experimentName).Join(runName)
+	if err = checkpointDir.mkdirIfNotExists(); err != nil {
+		return "", "", "", errors.WithMessagef(err, "failed to create checkpoint directory for experiment %s and run name %s", experimentName, runName)
+	}
+	guestPath := Path{path: filepath.Join("/home/nonroot/", ".cache", projectName, "experiments")}
+	return cacheDir.path, guestPath.Join("logs").Join(runName).path, checkpointDir.path, nil
 }
-
-
-
 
 func exitIfError(flag string, err error) {
 	if err != nil {
@@ -138,30 +139,30 @@ func exitIfError(flag string, err error) {
 
 }
 
-func ParseOrExit[T ~string| ~int | ~[]string](cmd *cobra.Command, flag string) T {
-  got := parseOrExitInternal[T](cmd, flag)
-  return got.(T)
+func ParseOrExit[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) T {
+	got := parseOrExitInternal[T](cmd, flag)
+	return got.(T)
 }
 
-func parseOrExitInternal[T ~string| ~int | ~[]string](cmd *cobra.Command, flag string) interface{} {
+func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) interface{} {
 	var value T
 	switch v := any(value).(type) {
 	case string:
 		v, err := cmd.Flags().GetString(flag)
-    exitIfError(flag, err)
-    return v
+		exitIfError(flag, err)
+		return v
 	case int:
 		v, err := cmd.Flags().GetInt(flag)
-    exitIfError(flag, err)
-     return v
+		exitIfError(flag, err)
+		return v
 	case []string:
 		v, err := cmd.Flags().GetStringSlice(flag)
-    exitIfError(flag, err)
-    return v
+		exitIfError(flag, err)
+		return v
 	default:
 		fmt.Printf("cannot parse %s: unknown type %T\n", flag, v)
-    os.Exit(1)
+		os.Exit(1)
 	}
 
-  return nil
+	return nil
 }

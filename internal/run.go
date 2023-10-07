@@ -38,7 +38,7 @@ func Run(args RunArgs) {
 		master,
 		args.Port,
 		guestLogPath,
-		[]string{"run_experiment.py"},
+		[]string{"higgsfield", "run"},
 		args.NProcPerNode,
 		args.ExperimentName,
 		args.ProjectName,

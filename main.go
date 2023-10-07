@@ -9,12 +9,12 @@ import (
 
 var rootCmd = &cobra.Command{Use: "higgsfield"}
 
-var experimentCmd = &cobra.Command{Use: "experiment"}
+var experimentCmd = &cobra.Command{Use: "experiment", Short: "Experiment commands"}
 
 func runCmdFunc() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "run an experiment",
+		Short: "Run an experiment",
 		Run: func(cmd *cobra.Command, args []string) {
 			internal.Run(internal.RunArgs{
 				ExperimentName: internal.ParseOrExit[string](cmd, "experiment_name"),
@@ -59,10 +59,24 @@ func killCmdFunc() *cobra.Command {
 	return cmd
 }
 
+func decodeSecrets() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "decode-secrets",
+		Short: "Decode secrets",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			internal.DecodeSecrets(args[0])
+		},
+	}
+	return cmd
+
+}
+
 func main() {
 	experimentCmd.AddCommand(runCmdFunc())
 	experimentCmd.AddCommand(killCmdFunc())
 
+	rootCmd.AddCommand(decodeSecrets())
 	rootCmd.AddCommand(experimentCmd)
 
 	if err := rootCmd.Execute(); err != nil {

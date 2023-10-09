@@ -59,7 +59,6 @@ func Run(args RunArgs) {
 		args.NProcPerNode,
 		args.ExperimentName,
 		args.ProjectName,
-		args.Port,
 		args.RunName,
 		args.MaxRepeats,
 		args.Rest,
@@ -86,7 +85,6 @@ func buildArgs(
 	nProcPerNode int,
 	experimentName string,
 	projectName string,
-	port int,
 	runName string,
 	maxRepeats int,
 	rest []string,
@@ -99,7 +97,7 @@ func buildArgs(
 		"--master_addr",
 		master,
 		"--master_port",
-		fmt.Sprint(nodeNum),
+		fmt.Sprint(masterPort),
 		"--nproc_per_node",
 		fmt.Sprint(nProcPerNode)}
 

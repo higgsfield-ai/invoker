@@ -31,7 +31,7 @@ func Run(args RunArgs) {
 		os.Exit(1)
 	}
 
-	hostCachePath, guestLogPath, checkpointDir, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
+	hostCachePath, checkpointDir, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
 	if err != nil {
 		fmt.Printf("failed to create directories: %v\n", err)
 		os.Exit(1)
@@ -47,7 +47,7 @@ func Run(args RunArgs) {
 |=  RUN NAME =              %s
 |=  MODEL CHECKPOINT PATH = %s
 |=
-|============================================================================================================="""
+|=============================================================================================================
 `, args.ExperimentName, args.RunName, checkpointDir)
 
 	cmd, cmdArgs := buildArgs(
@@ -55,7 +55,6 @@ func Run(args RunArgs) {
 		rank,
 		master,
 		args.Port,
-		guestLogPath,
 		[]string{"higgsfield", "run"},
 		args.NProcPerNode,
 		args.ExperimentName,
@@ -83,7 +82,6 @@ func buildArgs(
 	rank int,
 	master string,
 	masterPort int,
-	logPath string,
 	experimentExecutable []string,
 	nProcPerNode int,
 	experimentName string,
@@ -103,9 +101,7 @@ func buildArgs(
 		"--master_port",
 		fmt.Sprint(nodeNum),
 		"--nproc_per_node",
-		fmt.Sprint(nProcPerNode),
-		"--log_dir",
-		logPath}
+		fmt.Sprint(nProcPerNode)}
 
 	args = append(args, experimentExecutable...)
 	args = append(args,

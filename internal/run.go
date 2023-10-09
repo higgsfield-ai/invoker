@@ -8,7 +8,7 @@ import (
 
 type RunArgs struct {
 	ProjectName    string   `validate:"required,varname"`
-	Hosts          []string `validate:"required,min=1"`
+	Hosts          []string `validate:"required"`
 	NProcPerNode   int      `validate:"required,min=1"`
 	ExperimentName string   `validate:"required,varname"`
 	Port           int      `validate:"required,min=1"`

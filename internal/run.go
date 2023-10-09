@@ -17,6 +17,11 @@ type RunArgs struct {
 	Rest           []string
 }
 
+const runScript = `#!/usr/bin/env python
+from higgsfield.internal.main import cli;
+cli()
+`
+
 func Run(args RunArgs) {
 	if err := Validator().Struct(args); err != nil {
 		panic(err)
@@ -55,7 +60,7 @@ func Run(args RunArgs) {
 		rank,
 		master,
 		args.Port,
-		[]string{"higgsfield", "run"},
+		[]string{"higgsfield.py", "run"},
 		args.NProcPerNode,
 		args.ExperimentName,
 		args.ProjectName,
@@ -68,6 +73,15 @@ func Run(args RunArgs) {
 		fmt.Printf("failed to get current working directory: %v\n", err)
 		os.Exit(1)
 	}
+
+  // create a "higgsfield" file in cwd
+  f, err := os.Create("higgsfield.py")
+  if err != nil  {
+    fmt.Printf("failed to create a file: %v\n", err)
+  }
+  defer f.Close()
+
+  f.Write([]byte(runScript))
 
 	dr := NewDockerRun(context.Background(), args.ProjectName, cwd, hostCachePath)
 	if err := dr.Run(args.ExperimentName, cmd, cmdArgs, args.Port); err != nil {

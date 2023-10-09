@@ -33,6 +33,7 @@ const (
 	imageTag       = "hf-torch:latest"
 	guestRootPath  = "/srv/"
 	guestCachePath = "/home/nonroot/.cache/"
+  guestRootCachePath = "/root/.cache/"
 )
 
 func NewDockerRun(
@@ -166,6 +167,7 @@ func (d *DockerRun) Run(
 			Binds: []string{
 				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
 				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
+        fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
 			},
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),

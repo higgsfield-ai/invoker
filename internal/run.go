@@ -60,7 +60,7 @@ func Run(args RunArgs) {
 		rank,
 		master,
 		args.Port,
-		[]string{"higgsfield.py", "run"},
+		[]string{"hf.py", "run"},
 		args.NProcPerNode,
 		args.ExperimentName,
 		args.ProjectName,
@@ -75,7 +75,7 @@ func Run(args RunArgs) {
 	}
 
   // create a "higgsfield" file in cwd
-  f, err := os.Create("higgsfield.py")
+  f, err := os.Create("hf.py")
   if err != nil  {
     fmt.Printf("failed to create a file: %v\n", err)
   }

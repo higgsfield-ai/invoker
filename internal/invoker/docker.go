@@ -1,4 +1,4 @@
-package internal
+package invoker
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"io"
 	"os"
 
-  "github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	units "github.com/docker/go-units"
+	"github.com/ml-doom/invoker/internal/misc"
 	"github.com/pkg/errors"
 )
 
@@ -30,10 +31,10 @@ type DockerRun struct {
 }
 
 const (
-	imageTag       = "hf-torch:latest"
-	guestRootPath  = "/srv/"
-	guestCachePath = "/home/nonroot/.cache/"
-  guestRootCachePath = "/root/.cache/"
+	imageTag           = "hf-torch:latest"
+	guestRootPath      = "/srv/"
+	guestCachePath     = "/home/nonroot/.cache/"
+	guestRootCachePath = "/root/.cache/"
 )
 
 func NewDockerRun(
@@ -67,11 +68,11 @@ func NewDockerRun(
 }
 
 func (d *DockerRun) containerName(experimentName string) string {
-  return fmt.Sprintf("%s-%s", d.projectName, experimentName)
+	return fmt.Sprintf("%s-%s", d.projectName, experimentName)
 }
 
 func (d *DockerRun) Kill(experimentName string) error {
-  containerName := d.containerName(experimentName)
+	containerName := d.containerName(experimentName)
 	options := types.ContainerListOptions{All: true, Filters: filters.NewArgs(filters.Arg("name", containerName))}
 
 	containers, err := d.client.ContainerList(d.ctx, options)
@@ -84,9 +85,9 @@ func (d *DockerRun) Kill(experimentName string) error {
 	for _, c := range containers {
 		if c.Status == "running" {
 			fmt.Printf("stopping container %s\n", c.ID)
-      if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
-        fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
-      }
+			if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: misc.PtrTo(0)}); err != nil {
+				fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
+			}
 		}
 
 		fmt.Printf("removing container %s\n", c.ID)
@@ -110,21 +111,21 @@ func (d *DockerRun) Run(
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
-  buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
-  if err != nil {
-    panic(err)
-  }
-  defer buildCtx.Close()
+	buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer buildCtx.Close()
 
 	fmt.Printf("rebuilding image %s\n", d.imageTag)
 	buildOptions := types.ImageBuildOptions{
 		Tags: []string{d.imageTag},
 		BuildArgs: map[string]*string{
-			"GID": PtrTo(fmt.Sprintf("%d", d.hostGID)),
-			"UID": PtrTo(fmt.Sprintf("%d", d.hostUID)),
+			"GID": misc.PtrTo(fmt.Sprintf("%d", d.hostGID)),
+			"UID": misc.PtrTo(fmt.Sprintf("%d", d.hostUID)),
 		},
-    Remove:     true, // Remove intermediate containers after the build
-    ForceRemove: true, // Force removal of the image if it exists
+		Remove:      true, // Remove intermediate containers after the build
+		ForceRemove: true, // Force removal of the image if it exists
 	}
 
 	buildResponse, err := d.client.ImageBuild(d.ctx, buildCtx, buildOptions)
@@ -167,7 +168,7 @@ func (d *DockerRun) Run(
 			Binds: []string{
 				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
 				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
-        fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+				fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
 			},
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
@@ -203,8 +204,4 @@ func (d *DockerRun) Run(
 	fmt.Printf("started container %s\n", containerName)
 
 	return nil
-}
-
-func PtrTo[T any](e T) *T {
-	return &e
 }

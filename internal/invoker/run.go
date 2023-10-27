@@ -1,17 +1,19 @@
-package internal
+package invoker
 
 import (
 	"context"
 	"fmt"
 	"os"
+
+	"github.com/ml-doom/invoker/internal/misc"
 )
 
 type RunArgs struct {
 	ProjectName    string   `validate:"required,varname"`
+	Port           int      `validate:"required,min=1"`
 	Hosts          []string `validate:"required"`
 	NProcPerNode   int      `validate:"required,min=1"`
 	ExperimentName string   `validate:"required,varname"`
-	Port           int      `validate:"required,min=1"`
 	RunName        string   `validate:"required,varname"`
 	MaxRepeats     int      `validate:"required,min=-1"`
 	Rest           []string
@@ -23,20 +25,20 @@ cli()
 `
 
 func Run(args RunArgs) {
-	if err := Validator().Struct(args); err != nil {
+	if err := misc.Validator().Struct(args); err != nil {
 		panic(err)
 	}
 
-	master, rank := getRankAndMasterElseExit(args.Hosts)
-	portIsAvailable(args.Port)
+	master, rank := misc.GetRankAndMasterElseExit(args.Hosts)
+	misc.PortIsAvailable(args.Port)
 	nodeNum := len(args.Hosts)
 
-	if !isPortAvailable(args.Port) {
+	if !misc.IsPortAvailable(args.Port) {
 		fmt.Printf("port %d is not available\n", args.Port)
 		os.Exit(1)
 	}
 
-	hostCachePath, checkpointDir, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
+	hostCachePath, checkpointDir, err := misc.MakeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
 	if err != nil {
 		fmt.Printf("failed to create directories: %v\n", err)
 		os.Exit(1)

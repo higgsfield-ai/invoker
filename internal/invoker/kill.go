@@ -1,8 +1,10 @@
-package internal
+package invoker
 
 import (
 	"context"
 	"os"
+
+	"github.com/ml-doom/invoker/internal/misc"
 )
 
 type KillArgs struct {
@@ -12,11 +14,11 @@ type KillArgs struct {
 }
 
 func Kill(args KillArgs) {
-	if err := Validator().Struct(args); err != nil {
+	if err := misc.Validator().Struct(args); err != nil {
 		panic(err)
 	}
 
-	getRankAndMasterElseExit(args.Hosts)
+	misc.GetRankAndMasterElseExit(args.Hosts)
 
 	// get home directory
 	home, err := os.UserHomeDir()

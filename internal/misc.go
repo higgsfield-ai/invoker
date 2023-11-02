@@ -48,6 +48,10 @@ func getRankAndMasterElseExit(hosts []string) (string, int) {
 		}
 	}
 
+	if len(hosts)==1 && master == "localhost" {
+           return master, 1
+	}
+
 	if rank == -1 {
 		fmt.Printf("%s not found in hosts list, omitting\n", ip)
 		os.Exit(0)

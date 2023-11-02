@@ -26,8 +26,15 @@ func Run(args RunArgs) {
 	if err := Validator().Struct(args); err != nil {
 		panic(err)
 	}
+	master := args.Hosts[0]
+	rank:=0
 
-	master, rank := getRankAndMasterElseExit(args.Hosts)
+	if len(args.Hosts) > 1 {
+          master, rank = getRankAndMasterElseExit(args.Hosts)
+	} else {
+		master = "localhost"
+	}
+
 	portIsAvailable(args.Port)
 	nodeNum := len(args.Hosts)
 
@@ -106,13 +113,16 @@ func buildArgs(
 		fmt.Sprint(nodeNum),
 		"--node_rank",
 		fmt.Sprint(rank),
-		"--master_addr",
-		master,
-		"--master_port",
-		fmt.Sprint(masterPort),
 		"--nproc_per_node",
 		fmt.Sprint(nProcPerNode)}
-
+       if master == "localhost" {
+		args = append(args,
+			"--master_addr",
+			master,
+			"--master_port",
+			fmt.Sprint(masterPort),
+		)
+	}
 	args = append(args, experimentExecutable...)
 	args = append(args,
 		"--experiment_name",

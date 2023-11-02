@@ -31,3 +31,7 @@ func (s *Service) NewStopOrErr(ctx context.Context, soe StopOrErr) error {
 
 	return nil
 }
+
+func (s *Service) Health(ctx context.Context) (*int, error) {
+	return s.db.Health(ctx)
+}

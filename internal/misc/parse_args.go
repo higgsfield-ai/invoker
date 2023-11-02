@@ -16,12 +16,16 @@ func exitIfError(flag string, err error) {
 
 }
 
-func ParseOrExit[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) T {
+type argType interface {
+	~string | ~int | ~[]string | bool
+}
+
+func ParseOrExit[T argType](cmd *cobra.Command, flag string) T {
 	got := parseOrExitInternal[T](cmd, flag)
 	return got.(T)
 }
 
-func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) interface{} {
+func parseOrExitInternal[T argType](cmd *cobra.Command, flag string) interface{} {
 	var value T
 	switch v := any(value).(type) {
 	case string:
@@ -34,6 +38,10 @@ func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag 
 		return v
 	case []string:
 		v, err := cmd.Flags().GetStringSlice(flag)
+		exitIfError(flag, err)
+		return v
+	case bool:
+		v, err := cmd.Flags().GetBool(flag)
 		exitIfError(flag, err)
 		return v
 	default:

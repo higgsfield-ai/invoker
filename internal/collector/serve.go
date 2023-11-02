@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"net/http"
 
 	chi "github.com/go-chi/chi/v5"
@@ -11,7 +12,7 @@ func NewRouter(apiKey string, db *DB) *chi.Mux {
 	svc := NewService(db)
 
 	r := chi.NewRouter()
-  r.Use(XAPIKey(apiKey))
+	r.Use(XAPIKey(apiKey))
 	r.Use(DBTxn(db))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -50,5 +51,16 @@ func NewRouter(apiKey string, db *DB) *chi.Mux {
 		w.WriteHeader(http.StatusOK)
 	})
 
-  return r
+	r.Get("/logs/health", func(w http.ResponseWriter, r *http.Request) {
+		got, err := svc.Health(r.Context())
+		if err != nil || got == nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Write([]byte(fmt.Sprintf("%d", *got)))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	return r
 }

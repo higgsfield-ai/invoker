@@ -12,12 +12,15 @@ const (
 func XAPIKey(key string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get(XAPIHeader) != "" {
+      gotKey := r.Header.Get(XAPIHeader)
+
+      if gotKey == "" {
 				http.Error(w, "api key not present", http.StatusUnauthorized)
 				return
 			}
+  
 
-			if r.Header.Get(XAPIHeader) != key {
+			if gotKey != key {
 				http.Error(w, "invalid api key", http.StatusUnauthorized)
 				return
 			}

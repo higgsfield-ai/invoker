@@ -109,6 +109,8 @@ func collectorCmd() *cobra.Command {
 				ProjectName: misc.ParseOrExit[string](cmd, "project_name"),
 				Port:        misc.ParseOrExit[int](cmd, "port"),
 			})
+
+      misc.ParseOrExit[bool](cmd, "force")
 			if err != nil {
 				if errors.Is(err, collector.ErrPortInUse) {
 					return errors.WithMessagef(err, "cannot run collector, since other process is listening")
@@ -117,7 +119,7 @@ func collectorCmd() *cobra.Command {
 				if !errors.Is(err, collector.ErrPortInUseByInvoker) {
 					return errors.WithMessagef(err, "failed to initialize collector")
 				}
-      }
+			}
 
 			if server != nil {
 				fmt.Printf("collector listening on %s\n", server.Addr)
@@ -125,10 +127,8 @@ func collectorCmd() *cobra.Command {
 					return errors.WithMessagef(err, "failed to listen and serve")
 				}
 			} else {
-        fmt.Println("collector is already running")
-      }
-
-      
+				fmt.Println("collector is already running")
+			}
 
 			return nil
 		},
@@ -136,6 +136,8 @@ func collectorCmd() *cobra.Command {
 
 	cmd.PersistentFlags().String("project_name", "", "name of the project")
 	cmd.PersistentFlags().Int("port", 1234, "port to run collector on")
+	cmd.PersistentFlags().Bool("force", false, "force collector to run on port even if it is already in use by some other process")
+  cmd.PersistentFlags().Bool("daemon", false, "run collector in daemon mode")
 
 	return cmd
 }

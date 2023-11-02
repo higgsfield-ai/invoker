@@ -8,6 +8,7 @@ import (
 
 	"os"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/pkg/errors"
 
 	"math/rand"
@@ -75,9 +76,15 @@ func IsPortAvailable(port int) bool {
 	return true
 }
 
+var (
+	isolatedPorts = mapset.NewSet(
+		55555, // collector port
+	)
+)
+
 func GeneratePort() int {
 	port := rand.Intn(65535-1024) + 1024
-	for !IsPortAvailable(port) {
+	for !IsPortAvailable(port) && isolatedPorts.Contains(port) {
 		port = rand.Intn(65535-1024) + 1024
 	}
 

@@ -3,6 +3,7 @@ package misc
 import (
 	"fmt"
 	"math/rand"
+	"os"
 
 	ns "github.com/cakturk/go-netstat/netstat"
 	"github.com/pkg/errors"
@@ -52,9 +53,14 @@ func ProcOnPort(port uint16) (*ns.SockTabEntry, error) {
 }
 
 func KillByPID(pid int) error {
-  // kill process by PID
+  p, err := os.FindProcess(pid)
+  if err != nil {
+    return errors.WithMessagef(err, "failed to find process with pid %d", pid)
+  }
 
-/// this
+  if err := p.Kill(); err != nil {
+    return errors.WithMessagef(err, "failed to kill process with pid %d", pid)
+  }
 
   return nil
 }

@@ -39,8 +39,20 @@ func (db *DB) Warmup(ctx context.Context) error {
 	return nil
 }
 
+func (db *DB) Health(ctx context.Context) (*int, error) {
+	txn := ctx.Value(Txn).(*sql.Tx)
+
+	var got int
+
+	if err := txn.QueryRowContext(ctx, "SELECT 1").Scan(&got); err != nil {
+		return nil, errors.WithMessagef(err, "failed to ping database")
+	}
+
+	return &got, nil
+}
+
 func (db *DB) createTables(ctx context.Context, projectName, experimentName string) error {
-  txn := ctx.Value(Txn).(*sql.Tx)
+	txn := ctx.Value(Txn).(*sql.Tx)
 
 	tableName := projectName + "-" + experimentName + "_log"
 	if db.tables.Contains(tableName) {
@@ -61,7 +73,7 @@ func (db *DB) createTables(ctx context.Context, projectName, experimentName stri
 }
 
 func (db *DB) InsertLog(ctx context.Context, ltc LogToCollect) error {
-  txn := ctx.Value(Txn).(*sql.Tx)
+	txn := ctx.Value(Txn).(*sql.Tx)
 
 	if err := db.createTables(ctx, ltc.ProjectName, ltc.ExperimentName); err != nil {
 		return errors.WithMessagef(err, "failed to create table")
@@ -85,7 +97,7 @@ func (db *DB) InsertLog(ctx context.Context, ltc LogToCollect) error {
 }
 
 func (db *DB) InsertStop(ctx context.Context, soe StopOrErr) error {
-  txn := ctx.Value(Txn).(*sql.Tx)
+	txn := ctx.Value(Txn).(*sql.Tx)
 
 	if err := db.createTables(ctx, soe.ProjectName, soe.ExperimentName); err != nil {
 		return errors.WithMessagef(err, "failed to create table")

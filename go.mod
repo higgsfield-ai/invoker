@@ -3,7 +3,7 @@ module github.com/ml-doom/invoker
 go 1.21.0
 
 require (
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/pkg/errors v0.9.1

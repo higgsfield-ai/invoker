@@ -27,10 +27,10 @@ func Run(args RunArgs) {
 		panic(err)
 	}
 	master := args.Hosts[0]
-	rank:=0
+	rank := 0
 
 	if len(args.Hosts) > 1 {
-          master, rank = getRankAndMasterElseExit(args.Hosts)
+		master, rank = getRankAndMasterElseExit(args.Hosts)
 	} else {
 		master = "localhost"
 	}
@@ -74,20 +74,21 @@ func Run(args RunArgs) {
 		args.MaxRepeats,
 		args.Rest,
 	)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("failed to get current working directory: %v\n", err)
 		os.Exit(1)
 	}
 
-  // create a "higgsfield" file in cwd
-  f, err := os.Create("hf.py")
-  if err != nil  {
-    fmt.Printf("failed to create a file: %v\n", err)
-  }
-  defer f.Close()
+	// create a "higgsfield" file in cwd
+	f, err := os.Create("hf.py")
+	if err != nil {
+		fmt.Printf("failed to create a file: %v\n", err)
+	}
+	defer f.Close()
 
-  f.Write([]byte(runScript))
+	f.Write([]byte(runScript))
 
 	dr := NewDockerRun(context.Background(), args.ProjectName, cwd, hostCachePath)
 	if err := dr.Run(args.ExperimentName, cmd, cmdArgs, args.Port); err != nil {
@@ -114,8 +115,10 @@ func buildArgs(
 		"--node_rank",
 		fmt.Sprint(rank),
 		"--nproc_per_node",
-		fmt.Sprint(nProcPerNode)}
-       if master == "localhost" {
+		fmt.Sprint(nProcPerNode),
+	}
+
+	if master != "localhost" {
 		args = append(args,
 			"--master_addr",
 			master,

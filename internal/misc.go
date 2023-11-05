@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"slices"
 
 	"path/filepath"
 )
@@ -33,23 +34,49 @@ func myPublicIP() (string, error) {
 	return string(body), nil
 }
 
-func getRankAndMasterElseExit(hosts []string) (string, int) {
+func localIPs() ([]string, error) {
+	var ips []string
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, addr := range addresses {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				ips = append(ips, ipnet.IP.String())
+			}
+		}
+	}
+	return ips, nil
+}
+
+func rankAndMasterElseExit(hosts []string) (string, int) {
 	ip, err := myPublicIP()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	ips := []string{ip}
+
+	localIPs, err := localIPs()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	ips = append(ips, localIPs...)
 
 	master, rank := hosts[0], -1
 	for i, host := range hosts {
-		if host == ip {
+		if slices.Contains(ips, host) {
 			rank = i
 			break
 		}
 	}
 
-	if len(hosts)==1 && master == "localhost" {
-           return master, 1
+	if len(hosts) == 1 && master == "localhost" {
+		return master, 1
 	}
 
 	if rank == -1 {
@@ -109,7 +136,7 @@ func makeDefaultDirectories(projectName, experimentName, runName string) (string
 	if err = checkpointDir.mkdirIfNotExists(); err != nil {
 		return "", "", errors.WithMessagef(err, "failed to create checkpoint directory for experiment %s and run name %s", experimentName, runName)
 	}
-  
+
 	return cacheDir.path, checkpointDir.path, nil
 }
 

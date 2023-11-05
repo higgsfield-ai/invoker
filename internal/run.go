@@ -30,7 +30,7 @@ func Run(args RunArgs) {
 	rank := 0
 
 	if len(args.Hosts) > 1 {
-		master, rank = getRankAndMasterElseExit(args.Hosts)
+		master, rank = rankAndMasterElseExit(args.Hosts)
 	} else {
 		master = "localhost"
 	}

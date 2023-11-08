@@ -187,6 +187,7 @@ func (d *DockerRun) Run(
 					},
 				},
 			},
+      Privileged: true,
 		},
 	}
 

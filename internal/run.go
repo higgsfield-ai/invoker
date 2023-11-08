@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type RunArgs struct {
@@ -15,18 +16,56 @@ type RunArgs struct {
 	RunName        string   `validate:"required,varname"`
 	MaxRepeats     int      `validate:"required,min=-1"`
 	Rest           []string
+  ContainerName  *string
 }
 
 const runScript = `#!/usr/bin/env python
 from higgsfield.internal.main import cli;
 cli()
 `
+func nameFromRunArgs(args RunArgs) string {
+  if args.ContainerName != nil && *args.ContainerName != "" {
+		return *args.ContainerName
+  }
+
+	return DefaultProjExpContainerName(args.ProjectName, args.ExperimentName)
+}
+
+func trimPathForLength(path string, length int) string {
+  // check if path is less than length
+  if len(path) < length {
+    return path
+  }
+
+  // get rid of home directory and replace is with ~
+  // e.g. /home/user/... -> ~/...
+  if path[0] == '/' {
+    path = path[1:]
+  }
+
+  branches := strings.Split(path, "/")
+  slashes := len(branches) - 1
+  if slashes == 0 {
+    return path[:length]
+  }
+
+  if branches[0] == "home" {
+    path = "~/" + strings.Join(branches[2:], "/")
+  }
+
+  if len(path) < length {
+    return path
+  }
+
+  return path[:length] + "..."
+}
 
 func Run(args RunArgs) {
 	if err := Validator().Struct(args); err != nil {
 		panic(err)
 	}
-	master := args.Hosts[0]
+	
+  master := args.Hosts[0]
 	rank := 0
 
 	if len(args.Hosts) > 1 {
@@ -49,18 +88,21 @@ func Run(args RunArgs) {
 		os.Exit(1)
 	}
 
+  containerName := nameFromRunArgs(args)
+
 	fmt.Printf(`
-|=============================================================================================================
-|=
-|=  Training info:
-|=  🛠🛠🛠
-|=
-|=  EXPERIMENT NAME =       %s
-|=  RUN NAME =              %s
-|=  MODEL CHECKPOINT PATH = %s
-|=
-|=============================================================================================================
-`, args.ExperimentName, args.RunName, checkpointDir)
+╔══════════════════════════════════════════════════════════════════════════════════════════════════════
+║  
+║  > Training info:
+║  > 🛠🛠🛠
+║    
+║  > EXPERIMENT NAME  = %s 
+║  > RUN NAME         = %s
+║  > CONTAINER NAME   = %s
+║  > MODEL CHKPT PATH = %s
+║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════
+`, args.ExperimentName, args.RunName, containerName, trimPathForLength(checkpointDir, 70))
 
 	cmd, cmdArgs := buildArgs(
 		nodeNum,
@@ -91,7 +133,7 @@ func Run(args RunArgs) {
 	f.Write([]byte(runScript))
 
 	dr := NewDockerRun(context.Background(), args.ProjectName, cwd, hostCachePath)
-	if err := dr.Run(args.ExperimentName, cmd, cmdArgs, args.Port); err != nil {
+	if err := dr.Run(containerName, cmd, cmdArgs, args.Port); err != nil {
 		fmt.Printf("error occured while running experiment: %+v\n", err)
 		os.Exit(1)
 	}

@@ -26,6 +26,7 @@ func runCmdFunc() *cobra.Command {
 				NProcPerNode:   internal.ParseOrExit[int](cmd, "nproc_per_node"),
 				Hosts:          internal.ParseOrExit[[]string](cmd, "hosts"),
 				MaxRepeats:     -1,
+				ContainerName:  internal.ParseOrNil[string](cmd, "container_name"),
 				Rest:           args,
 			})
 		},
@@ -37,6 +38,7 @@ func runCmdFunc() *cobra.Command {
 	cmd.PersistentFlags().String("run_name", "", "name of the run")
 	cmd.PersistentFlags().Int("nproc_per_node", 1, "number of processes per node")
 	cmd.PersistentFlags().StringSlice("hosts", []string{}, "list of hosts to run the experiment on")
+  cmd.PersistentFlags().String("container_name", "", "name of the container, optional")
 
 	return cmd
 }
@@ -50,6 +52,7 @@ func killCmdFunc() *cobra.Command {
 				ProjectName:    internal.ParseOrExit[string](cmd, "project_name"),
 				Hosts:          internal.ParseOrExit[[]string](cmd, "hosts"),
 				ExperimentName: internal.ParseOrExit[string](cmd, "experiment_name"),
+				ContainerName:  internal.ParseOrNil[string](cmd, "container_name"),
 			})
 		},
 	}
@@ -57,6 +60,7 @@ func killCmdFunc() *cobra.Command {
 	cmd.PersistentFlags().String("experiment_name", "", "name of the experiment")
 	cmd.PersistentFlags().StringSlice("hosts", []string{}, "list of hosts to run the experiment on")
 	cmd.PersistentFlags().String("project_name", "", "name of the project")
+  cmd.PersistentFlags().String("container_name", "", "name of the container, optional")
 
 	return cmd
 }

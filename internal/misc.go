@@ -140,38 +140,56 @@ func makeDefaultDirectories(projectName, experimentName, runName string) (string
 	return cacheDir.path, checkpointDir.path, nil
 }
 
+type errStrategyFunc func(flag string, err error)
+
 func exitIfError(flag string, err error) {
 	if err != nil {
 		fmt.Printf("cannot parse %s: %v\n", flag, err)
 		os.Exit(1)
 	}
+}
 
+func nothingIfError(flag string, err error) {}
+
+func ParseOrNil[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) *T {
+  // TODO: buddy, need to fix this
+  got, ok := parseOrExitInternal[T](cmd, flag, false)
+	if !ok {
+		return nil
+	}
+	return PtrTo(got.(T))
 }
 
 func ParseOrExit[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) T {
-	got := parseOrExitInternal[T](cmd, flag)
+	got, _ := parseOrExitInternal[T](cmd, flag, true)
 	return got.(T)
 }
 
-func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) interface{} {
+func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string, exit bool) (interface{}, bool) {
+	errFunc := nothingIfError
+
+	if exit {
+		errFunc = exitIfError
+	}
+
 	var value T
 	switch v := any(value).(type) {
 	case string:
 		v, err := cmd.Flags().GetString(flag)
-		exitIfError(flag, err)
-		return v
+		errFunc(flag, err)
+		return v, err == nil
 	case int:
 		v, err := cmd.Flags().GetInt(flag)
-		exitIfError(flag, err)
-		return v
+		errFunc(flag, err)
+		return v, err == nil
 	case []string:
 		v, err := cmd.Flags().GetStringSlice(flag)
-		exitIfError(flag, err)
-		return v
+		errFunc(flag, err)
+		return v, err == nil
 	default:
 		fmt.Printf("cannot parse %s: unknown type %T\n", flag, v)
 		os.Exit(1)
 	}
 
-	return nil
+	return nil, false
 }

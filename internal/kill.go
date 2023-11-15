@@ -9,6 +9,15 @@ type KillArgs struct {
 	ProjectName    string   `validate:"required,varname"`
 	Hosts          []string `validate:"required,min=1"`
 	ExperimentName string   `validate:"varname"`
+	ContainerName  *string
+}
+
+func nameFromKillArgs(args KillArgs) string {
+  if args.ContainerName != nil && *args.ContainerName != "" {
+		return *args.ContainerName
+	}
+
+	return DefaultProjExpContainerName(args.ProjectName, args.ExperimentName)
 }
 
 func Kill(args KillArgs) {
@@ -16,7 +25,7 @@ func Kill(args KillArgs) {
 		panic(err)
 	}
 
-	getRankAndMasterElseExit(args.Hosts)
+	rankAndMasterElseExit(args.Hosts)
 
 	// get home directory
 	home, err := os.UserHomeDir()
@@ -34,7 +43,7 @@ func Kill(args KillArgs) {
 
 	dr := NewDockerRun(context.Background(), args.ProjectName, cwd, cachePath)
 
-  if err := dr.Kill(args.ExperimentName); err != nil {
-    panic(err)
-  }
+	if err := dr.Kill(nameFromKillArgs(args)); err != nil {
+		panic(err)
+	}
 }

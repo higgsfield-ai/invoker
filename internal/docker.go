@@ -66,12 +66,11 @@ func NewDockerRun(
 	}
 }
 
-func (d *DockerRun) containerName(experimentName string) string {
-  return fmt.Sprintf("%s-%s", d.projectName, experimentName)
+func DefaultProjExpContainerName(projectName, experimentName string) string {
+  return fmt.Sprintf("%s-%s", projectName, experimentName)
 }
 
-func (d *DockerRun) Kill(experimentName string) error {
-  containerName := d.containerName(experimentName)
+func (d *DockerRun) Kill(containerName string) error {
 	options := types.ContainerListOptions{All: true, Filters: filters.NewArgs(filters.Arg("name", containerName))}
 
 	containers, err := d.client.ContainerList(d.ctx, options)
@@ -99,14 +98,14 @@ func (d *DockerRun) Kill(experimentName string) error {
 }
 
 func (d *DockerRun) Run(
-	experimentName, runCommand string,
+	containerName string, 
+  runCommand string,
 	runCommandArgs []string,
 	exposePort int,
 ) error {
-	containerName := fmt.Sprintf("%s-%s", d.projectName, experimentName)
 
 	fmt.Printf("killing container %s\n", containerName)
-	if err := d.Kill(experimentName); err != nil {
+	if err := d.Kill(containerName); err != nil {
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
@@ -187,6 +186,7 @@ func (d *DockerRun) Run(
 					},
 				},
 			},
+      Privileged: true,
 		},
 	}
 

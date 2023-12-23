@@ -92,7 +92,7 @@ func Run(args RunArgs) {
 		os.Exit(1)
 	}
 
-	nppn := parseNProcPerNode(myIP, args.NProcPerNode)
+	gpuIDs := parseNProcPerNode(myIP, args.NProcPerNode)
 
 	master := args.Hosts[0]
 	rank := 0
@@ -110,8 +110,6 @@ func Run(args RunArgs) {
 		fmt.Printf("port %d is not available\n", args.Port)
 		os.Exit(1)
 	}
-
-	gpuIDs := make([]int, 0)
 
 	hostCachePath, checkpointDir, err := makeDefaultDirectories(args.ProjectName, args.ExperimentName, args.RunName)
 	if err != nil {
@@ -138,7 +136,7 @@ func Run(args RunArgs) {
 		args.RunName,
 		containerName,
 		trimPathForLength(checkpointDir, 70),
-		nppn,
+		gpuIDs,
 	)
 
 	cmd, cmdArgs := buildArgs(
@@ -147,7 +145,7 @@ func Run(args RunArgs) {
 		master,
 		args.Port,
 		[]string{"hf.py", "run"},
-		len(nppn),
+		len(gpuIDs),
 		args.ExperimentName,
 		args.RunName,
 		args.MaxRepeats,
@@ -179,7 +177,7 @@ func Run(args RunArgs) {
 		cmd,
 		cmdArgs,
 		args.Port,
-		toStringSlice(nppn),
+		toStringSlice(gpuIDs),
 	); err != nil {
 		fmt.Printf("error occured while running experiment: %+v\n", err)
 		os.Exit(1)

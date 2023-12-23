@@ -138,6 +138,7 @@ func Run(args RunArgs) {
 		args.RunName,
 		containerName,
 		trimPathForLength(checkpointDir, 70),
+		nppn,
 	)
 
 	cmd, cmdArgs := buildArgs(

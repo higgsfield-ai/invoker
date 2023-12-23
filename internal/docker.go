@@ -102,6 +102,7 @@ func (d *DockerRun) Run(
   runCommand string,
 	runCommandArgs []string,
 	exposePort int,
+  gpuIDs []string,
 ) error {
 
 	fmt.Printf("killing container %s\n", containerName)
@@ -148,8 +149,9 @@ func (d *DockerRun) Run(
 	if _, err := os.Stat("/dev/nvidia0"); err == nil {
 		fmt.Printf("host has gpu, adding gpu to device requests\n")
 		dr = append(dr, container.DeviceRequest{
-			Count:        -1,
+			Count:        len(gpuIDs),
 			Capabilities: [][]string{{"gpu"}},
+      DeviceIDs: gpuIDs,
 		})
 	} else {
 		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")

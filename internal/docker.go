@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 
-  "github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	units "github.com/docker/go-units"
 	"github.com/pkg/errors"
 )
@@ -30,10 +30,10 @@ type DockerRun struct {
 }
 
 const (
-	imageTag       = "hf-torch:latest"
-	guestRootPath  = "/srv/"
-	guestCachePath = "/home/nonroot/.cache/"
-  guestRootCachePath = "/root/.cache/"
+	imageTag           = "hf-torch:latest"
+	guestRootPath      = "/srv/"
+	guestCachePath     = "/home/nonroot/.cache/"
+	guestRootCachePath = "/root/.cache/"
 )
 
 func NewDockerRun(
@@ -67,7 +67,7 @@ func NewDockerRun(
 }
 
 func DefaultProjExpContainerName(projectName, experimentName string) string {
-  return fmt.Sprintf("%s-%s", projectName, experimentName)
+	return fmt.Sprintf("%s-%s", projectName, experimentName)
 }
 
 func (d *DockerRun) Kill(containerName string) error {
@@ -83,9 +83,9 @@ func (d *DockerRun) Kill(containerName string) error {
 	for _, c := range containers {
 		if c.Status == "running" {
 			fmt.Printf("stopping container %s\n", c.ID)
-      if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
-        fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
-      }
+			if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
+				fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
+			}
 		}
 
 		fmt.Printf("removing container %s\n", c.ID)
@@ -97,9 +97,54 @@ func (d *DockerRun) Kill(containerName string) error {
 	return nil
 }
 
+var otherNvidiaDevices = []string{
+	"/dev/nvidia-uvm",
+	"/dev/nvidiactl",
+
+	// not really sure if we need these
+	"/dev/nvidia-modeset",
+	"/dev/nvidia-uvm-tools",
+}
+
+func listOtherNvidiaDevices() []string {
+	devices := make([]string, 0, len(otherNvidiaDevices))
+	for _, path := range otherNvidiaDevices {
+		if _, err := os.Stat(path); err == nil {
+			devices = append(devices, path)
+		}
+	}
+
+	return devices
+}
+
+func listNvidiaGPUs() []string {
+	gpus := make([]string, 0, 32)
+	// we just need to check whether /dev/nvidia%d exists
+	for i := 0; i < 32; i++ {
+		path := fmt.Sprintf("/dev/nvidia%d", i)
+		if _, err := os.Stat(path); err == nil {
+			gpus = append(gpus, path)
+		}
+	}
+
+	return gpus
+}
+
+func createDeviceMapping(devices []string) []container.DeviceMapping {
+  mappings := make([]container.DeviceMapping, 0, len(devices))
+  for _, path := range devices {
+    mappings = append(mappings, container.DeviceMapping{
+      PathOnHost:        path,
+      PathInContainer:   path,
+      CgroupPermissions: "rwm",
+    })
+  }
+  return mappings
+}
+
 func (d *DockerRun) Run(
-	containerName string, 
-  runCommand string,
+	containerName string,
+	runCommand string,
 	runCommandArgs []string,
 	exposePort int,
 ) error {
@@ -109,11 +154,11 @@ func (d *DockerRun) Run(
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
-  buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
-  if err != nil {
-    panic(err)
-  }
-  defer buildCtx.Close()
+	buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer buildCtx.Close()
 
 	fmt.Printf("rebuilding image %s\n", d.imageTag)
 	buildOptions := types.ImageBuildOptions{
@@ -122,8 +167,8 @@ func (d *DockerRun) Run(
 			"GID": PtrTo(fmt.Sprintf("%d", d.hostGID)),
 			"UID": PtrTo(fmt.Sprintf("%d", d.hostUID)),
 		},
-    Remove:     true, // Remove intermediate containers after the build
-    ForceRemove: true, // Force removal of the image if it exists
+		Remove:      true, // Remove intermediate containers after the build
+		ForceRemove: true, // Force removal of the image if it exists
 	}
 
 	buildResponse, err := d.client.ImageBuild(d.ctx, buildCtx, buildOptions)
@@ -144,13 +189,17 @@ func (d *DockerRun) Run(
 	// this is a hacky way to get around the fact that docker doesn't support
 	// gpu passthrough on macos
 	dr := make([]container.DeviceRequest, 0, 1)
-
+	dm := make([]container.DeviceMapping, 0, 1)
 	if _, err := os.Stat("/dev/nvidia0"); err == nil {
 		fmt.Printf("host has gpu, adding gpu to device requests\n")
 		dr = append(dr, container.DeviceRequest{
 			Count:        -1,
 			Capabilities: [][]string{{"gpu"}},
 		})
+		// usually there's no need to add additional devices on bare-metal
+		// but with tcpx setup we need to add other nvidia-ish devices
+    dm = append(dm, createDeviceMapping(listNvidiaGPUs())...)
+    dm = append(dm, createDeviceMapping(listOtherNvidiaDevices())...)
 	} else {
 		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
 	}
@@ -166,7 +215,7 @@ func (d *DockerRun) Run(
 			Binds: []string{
 				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
 				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
-        fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+				fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
 			},
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
@@ -185,8 +234,10 @@ func (d *DockerRun) Run(
 						Hard: 67108864,
 					},
 				},
+				Devices: dm,
 			},
-      Privileged: true,
+			CapAdd:     []string{"NET_ADMIN"},
+			Privileged: true,
 		},
 	}
 

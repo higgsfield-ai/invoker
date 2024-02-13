@@ -193,3 +193,11 @@ func parseOrExitInternal[T ~string | ~int | ~[]string](cmd *cobra.Command, flag 
 
 	return nil, false
 }
+
+func toStringSlice[T any](slice []T) []string {
+  var stringSlice []string
+  for _, v := range slice {
+    stringSlice = append(stringSlice, fmt.Sprintf("%v", v))
+  }
+  return stringSlice
+}

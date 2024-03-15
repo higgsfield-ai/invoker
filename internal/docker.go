@@ -169,10 +169,11 @@ func (d *DockerRun) Run(
 	// this is a hacky way to get around the fact that docker doesn't support
 	// gpu passthrough on macos
 	dr := make([]container.DeviceRequest, 0, 1)
+	cos, _ := isCos()
 
 	if _, err := os.Stat("/dev/nvidia0"); err == nil {
 		fmt.Printf("host has gpu, adding gpu to device requests\n")
-		if isCos, _ := isCos(); isCos {
+		if cos {
 			fmt.Printf("host is cos, not adding gpu to device requests\n")
 		} else {
 			dr = append(dr, container.DeviceRequest{
@@ -184,6 +185,17 @@ func (d *DockerRun) Run(
 		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
 	}
 
+	binds := []string{
+		fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
+		fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
+		fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+	}
+
+	if _, err := os.Stat("/run/tcpx"); cos && err == nil {
+		fmt.Printf("host is cos, adding /run/tcpx to binds\n")
+		binds = append(binds, "/run/tcpx:/run/tcpx")
+	}
+
 	fmt.Printf("creating container %s\n", containerName)
 	createOptions := types.ContainerCreateConfig{
 		Name: containerName,
@@ -192,14 +204,11 @@ func (d *DockerRun) Run(
 			Entrypoint: append([]string{runCommand}, runCommandArgs...),
 		},
 		HostConfig: &container.HostConfig{
-			Binds: []string{
-				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
-				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
-				fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
-			},
+			Binds:       binds,
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
 			NetworkMode: container.NetworkMode("host"),
+      CapAdd:      []string{"NET_ADMIN"},
 			Resources: container.Resources{
 				DeviceRequests: dr,
 				Ulimits: []*units.Ulimit{

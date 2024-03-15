@@ -122,6 +122,51 @@ func (d *DockerRun) Kill(containerName string) error {
 	return nil
 }
 
+var otherNvidiaDevices = []string{
+	"/dev/nvidia-uvm",
+	"/dev/nvidiactl",
+
+	// not really sure if we need these
+	"/dev/nvidia-modeset",
+	"/dev/nvidia-uvm-tools",
+}
+
+func listOtherNvidiaDevices() []string {
+	devices := make([]string, 0, len(otherNvidiaDevices))
+	for _, path := range otherNvidiaDevices {
+		if _, err := os.Stat(path); err == nil {
+			devices = append(devices, path)
+		}
+	}
+
+	return devices
+}
+
+func listNvidiaGPUs() []string {
+	gpus := make([]string, 0, 32)
+	// we just need to check whether /dev/nvidia%d exists
+	for i := 0; i < 32; i++ {
+		path := fmt.Sprintf("/dev/nvidia%d", i)
+		if _, err := os.Stat(path); err == nil {
+			gpus = append(gpus, path)
+		}
+	}
+
+	return gpus
+}
+
+func createDeviceMapping(devices []string) []container.DeviceMapping {
+	mappings := make([]container.DeviceMapping, 0, len(devices))
+	for _, path := range devices {
+		mappings = append(mappings, container.DeviceMapping{
+			PathOnHost:        path,
+			PathInContainer:   path,
+			CgroupPermissions: "rwm",
+		})
+	}
+	return mappings
+}
+
 func (d *DockerRun) Run(
 	containerName string,
 	runCommand string,
@@ -170,7 +215,7 @@ func (d *DockerRun) Run(
 	// gpu passthrough on macos
 	dr := make([]container.DeviceRequest, 0, 1)
 	cos, _ := isCos()
-
+	dm := make([]container.DeviceMapping, 0, 1)
 	if _, err := os.Stat("/dev/nvidia0"); err == nil {
 		fmt.Printf("host has gpu, adding gpu to device requests\n")
 		if cos {
@@ -181,6 +226,10 @@ func (d *DockerRun) Run(
 				Capabilities: [][]string{{"gpu"}},
 			})
 		}
+		// usually there's no need to add additional devices on bare-metal
+		// but with tcpx setup we need to add other nvidia-ish devices
+		dm = append(dm, createDeviceMapping(listNvidiaGPUs())...)
+		dm = append(dm, createDeviceMapping(listOtherNvidiaDevices())...)
 	} else {
 		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
 	}
@@ -208,7 +257,7 @@ func (d *DockerRun) Run(
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
 			NetworkMode: container.NetworkMode("host"),
-      CapAdd:      []string{"NET_ADMIN"},
+			CapAdd:      []string{"NET_ADMIN"},
 			Resources: container.Resources{
 				DeviceRequests: dr,
 				Ulimits: []*units.Ulimit{
@@ -223,6 +272,7 @@ func (d *DockerRun) Run(
 						Hard: 67108864,
 					},
 				},
+				Devices: dm,
 			},
 			Privileged: true,
 		},

@@ -18,3 +18,5 @@ jobs:
         goos: linux
         goarch: amd64
         ldflags: -extldflags "-static"
+      env:
+        CGO_ENABLED: 0

@@ -1,16 +1,18 @@
 package internal
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
-  "github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	units "github.com/docker/go-units"
 	"github.com/pkg/errors"
 )
@@ -30,11 +32,34 @@ type DockerRun struct {
 }
 
 const (
-	imageTag       = "hf-torch:latest"
-	guestRootPath  = "/srv/"
-	guestCachePath = "/home/nonroot/.cache/"
-  guestRootCachePath = "/root/.cache/"
+	imageTag           = "hf-torch:latest"
+	guestRootPath      = "/srv/"
+	guestCachePath     = "/home/nonroot/.cache/"
+	guestRootCachePath = "/root/.cache/"
 )
+
+func isCos() (bool, error) {
+	file, err := os.Open("/etc/os-release")
+	if err != nil {
+		return false, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "ID=") {
+			id := strings.TrimPrefix(line, "ID=")
+			return id == "cos", nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("failed to scan file: %w", err)
+	}
+
+	return false, nil
+}
 
 func NewDockerRun(
 	ctx context.Context,
@@ -67,7 +92,7 @@ func NewDockerRun(
 }
 
 func DefaultProjExpContainerName(projectName, experimentName string) string {
-  return fmt.Sprintf("%s-%s", projectName, experimentName)
+	return fmt.Sprintf("%s-%s", projectName, experimentName)
 }
 
 func (d *DockerRun) Kill(containerName string) error {
@@ -83,9 +108,9 @@ func (d *DockerRun) Kill(containerName string) error {
 	for _, c := range containers {
 		if c.Status == "running" {
 			fmt.Printf("stopping container %s\n", c.ID)
-      if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
-        fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
-      }
+			if err := d.client.ContainerStop(d.ctx, c.ID, container.StopOptions{Timeout: PtrTo(0)}); err != nil {
+				fmt.Printf("failed to stop container %s, reason: %v", c.ID, err)
+			}
 		}
 
 		fmt.Printf("removing container %s\n", c.ID)
@@ -98,8 +123,8 @@ func (d *DockerRun) Kill(containerName string) error {
 }
 
 func (d *DockerRun) Run(
-	containerName string, 
-  runCommand string,
+	containerName string,
+	runCommand string,
 	runCommandArgs []string,
 	exposePort int,
 ) error {
@@ -109,11 +134,11 @@ func (d *DockerRun) Run(
 		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
-  buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
-  if err != nil {
-    panic(err)
-  }
-  defer buildCtx.Close()
+	buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer buildCtx.Close()
 
 	fmt.Printf("rebuilding image %s\n", d.imageTag)
 	buildOptions := types.ImageBuildOptions{
@@ -122,8 +147,8 @@ func (d *DockerRun) Run(
 			"GID": PtrTo(fmt.Sprintf("%d", d.hostGID)),
 			"UID": PtrTo(fmt.Sprintf("%d", d.hostUID)),
 		},
-    Remove:     true, // Remove intermediate containers after the build
-    ForceRemove: true, // Force removal of the image if it exists
+		Remove:      true, // Remove intermediate containers after the build
+		ForceRemove: true, // Force removal of the image if it exists
 	}
 
 	buildResponse, err := d.client.ImageBuild(d.ctx, buildCtx, buildOptions)
@@ -147,10 +172,14 @@ func (d *DockerRun) Run(
 
 	if _, err := os.Stat("/dev/nvidia0"); err == nil {
 		fmt.Printf("host has gpu, adding gpu to device requests\n")
-		dr = append(dr, container.DeviceRequest{
-			Count:        -1,
-			Capabilities: [][]string{{"gpu"}},
-		})
+		if isCos, _ := isCos(); isCos {
+			fmt.Printf("host is cos, not adding gpu to device requests\n")
+		} else {
+			dr = append(dr, container.DeviceRequest{
+				Count:        -1,
+				Capabilities: [][]string{{"gpu"}},
+			})
+		}
 	} else {
 		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
 	}
@@ -166,7 +195,7 @@ func (d *DockerRun) Run(
 			Binds: []string{
 				fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
 				fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
-        fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+				fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
 			},
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
@@ -186,7 +215,7 @@ func (d *DockerRun) Run(
 					},
 				},
 			},
-      Privileged: true,
+			Privileged: true,
 		},
 	}
 

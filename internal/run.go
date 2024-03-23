@@ -85,11 +85,11 @@ func Run(args RunArgs) {
 		panic(err)
 	}
 
-	master := args.Hosts[0]
+	master := masterHostElseFirstHost(args)
 	rank := 0
 
 	if len(args.Hosts) > 1 {
-		master, rank = rankAndMasterElseExit(args.Hosts)
+		_, rank = rankAndMasterElseExit(args.Hosts)
 	} else {
 		master = "localhost"
 	}

@@ -27,6 +27,8 @@ func runCmdFunc() *cobra.Command {
 				Hosts:          internal.ParseOrExit[[]string](cmd, "hosts"),
 				MaxRepeats:     -1,
 				ContainerName:  internal.ParseOrNil[string](cmd, "container_name"),
+        MasterHost:     internal.ParseOrNil[string](cmd, "master_host"),
+        NoPython:       internal.ParseOrNil[string](cmd, "no_python"),
 				Rest:           args,
 			})
 		},
@@ -39,7 +41,8 @@ func runCmdFunc() *cobra.Command {
 	cmd.PersistentFlags().Int("nproc_per_node", 1, "number of processes per node")
 	cmd.PersistentFlags().StringSlice("hosts", []string{}, "list of hosts to run the experiment on")
   cmd.PersistentFlags().String("container_name", "", "name of the container, optional")
-
+  cmd.PersistentFlags().String("master_host", "", "name of the master host, optional")
+  cmd.PersistentFlags().String("no_python", "", "torchrun's --no-python flag, put an exec bash/python/etc. script that would be run via torchrun, e.g. affinity.sh, optional")
 	return cmd
 }
 

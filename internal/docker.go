@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	units "github.com/docker/go-units"
 	"github.com/pkg/errors"
+	"path/filepath"
 )
 
 type DockerRun struct {
@@ -167,18 +168,80 @@ func createDeviceMapping(devices []string) []container.DeviceMapping {
 	return mappings
 }
 
-func (d *DockerRun) Run(
-	containerName string,
-	runCommand string,
-	runCommandArgs []string,
-	exposePort int,
-) error {
+var ldMap = map[string]string{
+	"/var/lib/nvidia/lib64": "/usr/local/nvidia/lib64",
+	"/var/lib/tcpx":         "/usr/local/tcpx",
+	"/run/tcpx":             "/run/tcpx",
+}
 
-	fmt.Printf("killing container %s\n", containerName)
-	if err := d.Kill(containerName); err != nil {
-		return errors.WithMessagef(err, "failed to kill container %s", containerName)
+func ldBinds() []string {
+	binds := make([]string, 0, len(ldMap))
+	for host, guest := range ldMap {
+		// check if host path exists
+		if _, err := os.Stat(host); err != nil {
+			continue
+		}
+
+		fmt.Printf("adding bind: %s:%s\n", host, guest)
+
+		binds = append(binds, fmt.Sprintf("%s:%s", host, guest))
 	}
 
+	return binds
+}
+
+func capAdd() []string {
+	return []string{
+		"NET_ADMIN",
+		"SYS_ADMIN",
+		"SYS_PTRACE",
+		"IPC_LOCK",
+	}
+}
+
+func (d *DockerRun) volbinds() []string {
+	binds := []string{
+		fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
+		fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
+		fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+	}
+
+	binds = append(binds, ldBinds()...)
+
+	return binds
+}
+
+func (d *DockerRun) deviceMapsAndRequests() ([]container.DeviceMapping, []container.DeviceRequest) {
+	// You can't run invoker on cos that natively, but there's still a workaround :D
+	cos, _ := isCos()
+
+	// check if host has gpu
+	// if yes, add gpu to device requests
+	// else, don't add gpu to device requests
+	// this is a hacky way to get around the fact that docker doesn't support
+	// gpu passthrough on macos
+	dr := make([]container.DeviceRequest, 0, 1)
+	dm := make([]container.DeviceMapping, 0, 1)
+	if _, err := os.Stat("/dev/nvidia0"); err == nil {
+		fmt.Printf("host has gpu, adding gpu to device requests\n")
+		if !cos {
+			dr = append(dr, container.DeviceRequest{
+				Count:        -1,
+				Capabilities: [][]string{{"gpu"}},
+			})
+		}
+		// usually there's no need to add additional devices on bare-metal
+		// but with tcpx setup we need to add other nvidia-ish devices
+		dm = append(dm, createDeviceMapping(listNvidiaGPUs())...)
+		dm = append(dm, createDeviceMapping(listOtherNvidiaDevices())...)
+	} else {
+		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
+	}
+
+	return dm, dr
+}
+
+func (d *DockerRun) build() error {
 	buildCtx, err := archive.TarWithOptions(d.hostRootPath, &archive.TarOptions{})
 	if err != nil {
 		panic(err)
@@ -208,41 +271,28 @@ func (d *DockerRun) Run(
 		return errors.WithMessagef(err, "failed to build image %s", d.imageTag)
 	}
 
-	// check if host has gpu
-	// if yes, add gpu to device requests
-	// else, don't add gpu to device requests
-	// this is a hacky way to get around the fact that docker doesn't support
-	// gpu passthrough on macos
-	dr := make([]container.DeviceRequest, 0, 1)
-	cos, _ := isCos()
-	dm := make([]container.DeviceMapping, 0, 1)
-	if _, err := os.Stat("/dev/nvidia0"); err == nil {
-		fmt.Printf("host has gpu, adding gpu to device requests\n")
-		if cos {
-			fmt.Printf("host is cos, not adding gpu to device requests\n")
-		} else {
-			dr = append(dr, container.DeviceRequest{
-				Count:        -1,
-				Capabilities: [][]string{{"gpu"}},
-			})
-		}
-		// usually there's no need to add additional devices on bare-metal
-		// but with tcpx setup we need to add other nvidia-ish devices
-		dm = append(dm, createDeviceMapping(listNvidiaGPUs())...)
-		dm = append(dm, createDeviceMapping(listOtherNvidiaDevices())...)
-	} else {
-		fmt.Printf("host does not have gpu, not adding gpu to device requests\n")
+	return nil
+}
+
+func (d *DockerRun) Run(
+	containerName string,
+	runCommand string,
+	runCommandArgs []string,
+	exposePort int,
+) error {
+	fmt.Printf("killing container %s\n", containerName)
+	if err := d.Kill(containerName); err != nil {
+		return errors.WithMessagef(err, "failed to kill container %s", containerName)
 	}
 
-	binds := []string{
-		fmt.Sprintf("%s:%s", d.hostRootPath, d.guestRootPath),
-		fmt.Sprintf("%s:%s", d.hostCachePath, d.guestCachePath),
-		fmt.Sprintf("%s:%s", d.hostCachePath, guestRootCachePath),
+	if err := d.build(); err != nil {
+		return errors.WithMessagef(err, "failed to build image %s", d.imageTag)
 	}
 
-	if _, err := os.Stat("/run/tcpx"); cos && err == nil {
-		fmt.Printf("host is cos, adding /run/tcpx to binds\n")
-		binds = append(binds, "/run/tcpx:/run/tcpx")
+	dm, dr := d.deviceMapsAndRequests()
+	envVars, err := loadEnvFile(filepath.Join(d.hostRootPath, "nccl_config_env"))
+	if err != nil {
+		return errors.WithMessagef(err, "failed to load nccl_config_env file")
 	}
 
 	fmt.Printf("creating container %s\n", containerName)
@@ -251,13 +301,14 @@ func (d *DockerRun) Run(
 		Config: &container.Config{
 			Image:      d.imageTag,
 			Entrypoint: append([]string{runCommand}, runCommandArgs...),
+			Env:        envVars,
 		},
 		HostConfig: &container.HostConfig{
-			Binds:       binds,
+			Binds:       d.volbinds(),
 			IpcMode:     container.IPCModeHost,
 			PidMode:     container.PidMode("host"),
 			NetworkMode: container.NetworkMode("host"),
-			CapAdd:      []string{"NET_ADMIN"},
+			CapAdd:      capAdd(),
 			Resources: container.Resources{
 				DeviceRequests: dr,
 				Ulimits: []*units.Ulimit{
@@ -291,8 +342,4 @@ func (d *DockerRun) Run(
 	fmt.Printf("started container %s\n", containerName)
 
 	return nil
-}
-
-func PtrTo[T any](e T) *T {
-	return &e
 }

@@ -8,6 +8,7 @@ import (
 
 	"os"
 
+	envparse "github.com/hashicorp/go-envparse"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"slices"
@@ -16,6 +17,38 @@ import (
 )
 
 const url = "https://api.ipify.org"
+
+func PtrTo[T any](e T) *T {
+	return &e
+}
+
+func loadEnvFile(path string) ([]string, error) {
+  // check if the file exists
+  // if it does not exist, return an empty slice
+  if _, err := os.Stat(path); os.IsNotExist(err) {
+    return []string{}, nil
+  }
+
+  // open file
+  file, err := os.Open(path)
+  if err != nil {
+    return nil, errors.WithMessage(err, "failed to open env file")
+  }
+
+  defer file.Close()
+  
+	envs, err := envparse.Parse(file)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to parse env file")
+	}
+
+	var lines []string
+	for key, value := range envs {
+		lines = append(lines, key+"="+value)
+	}
+
+	return lines, nil
+}
 
 func myPublicIP() (string, error) {
 	resp, err := http.Get(url)
@@ -152,8 +185,8 @@ func exitIfError(flag string, err error) {
 func nothingIfError(flag string, err error) {}
 
 func ParseOrNil[T ~string | ~int | ~[]string](cmd *cobra.Command, flag string) *T {
-  // TODO: buddy, need to fix this
-  got, ok := parseOrExitInternal[T](cmd, flag, false)
+	// TODO: buddy, need to fix this
+	got, ok := parseOrExitInternal[T](cmd, flag, false)
 	if !ok {
 		return nil
 	}
